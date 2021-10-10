@@ -1,17 +1,91 @@
+let croppingImg  = null;
+
 window.addEventListener('DOMContentLoaded', function() {
-    document.getElementById("cameraFileInput").addEventListener("change", function () {
-        document
-            .getElementById("pictureFromCamera")
-            .setAttribute("src", window.URL.createObjectURL(this.files[0]));
+    document.getElementById("cameraFileInput").addEventListener("change", function (evt) {
+        // Resize upon load.
+        // Reference:
+        //  - https://www.askingbox.com/tutorial/how-to-resize-image-before-upload-in-browser
+        //  - https://codepen.io/tuanitpro/pen/wJZJbp
+        //
+        var file = evt.target.files[0];
+ 
+        if (file.type == "image/jpeg" || file.type == "image/png") {
+            var reader = new FileReader();  
+            reader.onload = function(readerEvt) {
+                var image = new Image();
+                image.onload = function() {    
+                    var max_size = 400;
+                    var w = image.width;
+                    var h = image.height;
+                  
+                    if (w > h) {  if (w > max_size) { h*=max_size/w; w=max_size; }
+                    } else     {  if (h > max_size) { w*=max_size/h; h=max_size; } }
+                  
+                    var canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    canvas.getContext('2d').drawImage(image, 0, 0, w, h);
+                       
+                    if (file.type == "image/jpeg") {
+                        var dataURL = canvas.toDataURL("image/jpeg", 1.0);
+                    } else {
+                        var dataURL = canvas.toDataURL("image/png");   
+                    }
+                    document.getElementById('pictureFromCamera')
+                        .setAttribute("src",dataURL);
+                }
+                image.src = readerEvt.target.result;
+            }
+            reader.readAsDataURL(file);
+        } else {
+            document.getElementById('cameraFileInput').value = ''; 
+            alert('Please only select images in JPG- or PNG-format.');  
+        }
     });
+
     document.getElementById("analyseButton0").addEventListener("click", analyseFunction);
+
+    document.getElementById("pictureFromCamera").addEventListener("load", function () {
+        var origImg = document.getElementById("pictureFromCamera");
+
+        if (croppingImg){
+            croppingImg.destroy();
+        }
+
+        croppingImg = new Croppie(origImg, {
+            viewport: {
+                width: Math.floor(0.9 * origImg.width),
+                height: Math.floor(0.9 * origImg.height)
+            },
+            boundary: {
+                width: Math.floor(1.2 * origImg.width),
+                height: Math.floor(1.2 * origImg.height)
+            },
+            enableExif: true,
+            enableResize: true,
+            showZoomer: false,
+            enableZoom: false,
+            enableOrientation: false,
+            mouseWheelZoom: 'ctrl',
+            }
+        );
+    });
 
 });
 
 async function analyseFunction() {
     try{
-        let src = cv.imread('pictureFromCamera');
-        // let src = cv.imread('inputCanvas0');
+        let src_ = cv.imread('pictureFromCamera');
+        // let src_ = cv.imread('inputCanvas0');
+
+        let croppedCorners = croppingImg.get().points;
+        let crX1 = parseInt(croppedCorners[0]), crY1 = parseInt(croppedCorners[1]);
+        let crX2 = parseInt(croppedCorners[2]), crY2 = parseInt(croppedCorners[3]);
+        var srcRect_ = new cv.Rect(crX1, crY1, crX2 - crX1, crY2 - crY1);
+            
+        let src = resize2width(src_.roi(srcRect_), 320);
+        cv.imshow('outputCanvas0a', src);
+
         let [mask, bb] = foregroundSegmentation(src);
 
         let [features, otherFeatures] = extractObjectFeatures(mask, bb);
@@ -31,8 +105,11 @@ async function analyseFunction() {
                 new cv.Scalar(0, 0, 255, 255), 1, cv.LINE_AA, 0);
         }
 
-        cv.imshow('outputCanvas0a', debugRGBA);
+        cv.imshow('outputCanvas0b', debugRGBA);
 
+        src_.delete();
+        src.delete();
+        mask.delete();
         debugRGBA.delete();
         delete features;
         delete otherFeatures;
@@ -40,6 +117,20 @@ async function analyseFunction() {
     }catch(error){
         window.alert(error);
     }
+};
+
+function resize2width(srcRGBA, width){
+    let imgSize = srcRGBA.size();
+
+    if (width <= 0 || width === imgSize.width)
+        return srcRGBA.clone();
+
+    var ratio = width*1.0/imgSize.width;
+    var newSize = new cv.Size(width, Math.floor(imgSize.height * ratio));
+
+    let newSrcRGBA = new cv.Mat()
+    cv.resize(srcRGBA, newSrcRGBA, newSize, interpolation=cv.INTER_AREA);
+    return newSrcRGBA;
 };
 
 

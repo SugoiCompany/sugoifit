@@ -6,6 +6,8 @@ layout: default
   <h1 class="page-heading">ML Measurement</h1>
 
   <!-- Inserting Code Here -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/croppie/2.6.5/croppie.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/croppie/2.6.5/croppie.min.css"/>
   <script src="https://docs.opencv.org/4.5.3/opencv.js"></script>
   <script src="{{ site.baseurl }}/assets/js/script.js"></script>
   <script src="{{ site.baseurl }}/assets/js/utils.js"></script>
@@ -13,27 +15,24 @@ layout: default
 
   <div>
     <!-- The `label` is attached to the hidden file input -->
-    <label for="cameraFileInput">
-      <span class="btn">Open camera</span>
-    
+    <label>
       <!-- The hidden file `input` for opening the native camera -->
-      <input
-        id="cameraFileInput"
-        type="file"
-        accept="image/*"
-        capture="environment"
-      />
+      <input id="cameraFileInput" type="file" accept="image/*" capture="environment" />
     </label>
     
     <!-- displays the picture uploaded from the native camera -->
-    <img id="pictureFromCamera" width="320"/>
-
+    <img id="pictureFromCamera"/>
   </div>
+  
   <div>
     <button id="analyseButton0">Analyse</button>
     <div>
       <canvas id="outputCanvas0a"></canvas>
-      <figcaption>Result</figcaption>
+      <figcaption>Input Image (Cropped)</figcaption>
+    </div>
+    <div>
+      <canvas id="outputCanvas0b"></canvas>
+      <figcaption>Analysis Result</figcaption>
     </div>
   </div>
 
