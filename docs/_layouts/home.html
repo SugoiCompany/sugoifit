@@ -3,6 +3,42 @@ layout: default
 ---
 
 <div class="home">
+  <h1 class="page-heading">ML Measurement</h1>
+
+  <!-- Inserting Code Here -->
+  <script src="https://docs.opencv.org/4.5.3/opencv.js"></script>
+  <script src="{{ base.url | prepend: site.url }}/assets/js/script.js"></script>
+  <script src="{{ base.url | prepend: site.url }}/assets/js/utils.js"></script>
+  <script src="{{ base.url | prepend: site.url }}/assets/js/xiaolin-wu.js"></script>
+
+  <div>
+    <!-- The `label` is attached to the hidden file input -->
+    <label for="cameraFileInput">
+      <span class="btn">Open camera</span>
+    
+      <!-- The hidden file `input` for opening the native camera -->
+      <input
+        id="cameraFileInput"
+        type="file"
+        accept="image/*"
+        capture="environment"
+      />
+    </label>
+    
+    <!-- displays the picture uploaded from the native camera -->
+    <img id="pictureFromCamera" width="320"/>
+
+  </div>
+  <div>
+    <button id="analyseButton0">Analyse</button>
+    <div>
+      <canvas id="outputCanvas0a"></canvas>
+      <figcaption>Result</figcaption>
+    </div>
+  </div>
+
+  <!-- End Inserting Code Here -->
+
   <h1 class="page-heading">Product</h1>
   {{ content }}
 
