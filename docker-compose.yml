@@ -1,0 +1,26 @@
+version: '3.7'
+
+services:
+  builder:
+    container_name: github-build
+    image: jekyll-github:latest
+    build:
+      context: ./
+    volumes:
+      - ./:/project
+    working_dir: /project
+    command: /bin/bash
+  server:
+    container_name: github-page
+    image: jekyll-github:latest
+    build:
+      context: ./
+    volumes:
+      - ./docs:/apps
+    network_mode: host
+    # ports:
+    #   - 4000:4000
+    command: bash -c '
+      bundle update &&
+      bundle exec jekyll serve --livereload --host 0.0.0.0
+      '
