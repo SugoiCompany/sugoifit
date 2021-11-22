@@ -45,45 +45,17 @@ window.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById("analyseButton0").addEventListener("click", analyseFunction);
 
-    document.getElementById("pictureFromCamera").addEventListener("load", function () {
-        var origImg = document.getElementById("pictureFromCamera");
-
-        if (croppingImg){
-            croppingImg.destroy();
-        }
-
-        croppingImg = new Croppie(origImg, {
-            viewport: {
-                width: Math.floor(0.9 * origImg.width),
-                height: Math.floor(0.9 * origImg.height)
-            },
-            boundary: {
-                width: Math.floor(1.2 * origImg.width),
-                height: Math.floor(1.2 * origImg.height)
-            },
-            enableExif: true,
-            enableResize: true,
-            showZoomer: false,
-            enableZoom: false,
-            enableOrientation: false,
-            mouseWheelZoom: 'ctrl',
-            }
-        );
-    });
-
 });
 
 async function analyseFunction() {
     try{
         let src_ = cv.imread('pictureFromCamera');
         // let src_ = cv.imread('inputCanvas0');
+        // src_ = resize2width(src_, 400);
 
-        let croppedCorners = croppingImg.get().points;
-        let crX1 = parseInt(croppedCorners[0]), crY1 = parseInt(croppedCorners[1]);
-        let crX2 = parseInt(croppedCorners[2]), crY2 = parseInt(croppedCorners[3]);
-        var srcRect_ = new cv.Rect(crX1, crY1, crX2 - crX1, crY2 - crY1);
-            
+        var srcRect_ = findWhiteBoundingBox(src_);
         let src = resize2width(src_.roi(srcRect_), 320);
+
         cv.imshow('outputCanvas0a', src);
 
         let [mask, bb] = foregroundSegmentation(src);
@@ -133,6 +105,78 @@ function resize2width(srcRGBA, width){
     return newSrcRGBA;
 };
 
+
+/*
+ * Using HSV to find white region in the image
+ * https://stackoverflow.com/a/59977588
+ *
+ * an intersection with HLS could be a good candiate also.
+ *
+ * */
+function findWhiteBoundingBox(srcRGBA, minAreaRatio = 0.2){
+    if (! isImgRGBA(srcRGBA)){
+        errMsg = "findWhiteBoundingBox: Source image should be RGBA.";
+        console.error(errMsg);
+        throw new Error(errMsg);
+    }
+
+    let nrows = srcRGBA.rows;
+    let ncols = srcRGBA.cols;
+
+    let srcRGB = convertImg(srcRGBA, cv.COLOR_RGBA2RGB);
+
+    let srcHSV = convertImg(srcRGB, cv.COLOR_RGB2HSV);
+    let srcWhiteHSV = new cv.Mat();
+    let lowerHSV = new cv.Mat(srcHSV.rows, srcHSV.cols, srcHSV.type(), [0, 0, 122, 0]);
+    let upperHSV = new cv.Mat(srcHSV.rows, srcHSV.cols, srcHSV.type(), [255, 54, 255, 255]);
+    cv.inRange(srcHSV, lowerHSV, upperHSV, srcWhiteHSV)
+    lowerHSV.delete()
+    upperHSV.delete()
+
+    // let srcHLS = convertImg(srcRGB, cv.COLOR_RGB2HLS)
+    // let srcWhiteHLS = new cv.Mat();
+    // let lowerHLS = new cv.Mat(srcHLS.rows, srcHLS.cols, srcHLS.type(), [0, 122, 0, 0]);
+    // let upperHLS = new cv.Mat(srcHLS.rows, srcHLS.cols, srcHLS.type(), [255, 255, 54, 255]);
+    // cv.inRange(srcHLS, lowerHLS, upperHLS, srcWhiteHLS)
+    // lowerHLS.delete()
+    // upperHLS.delete()
+
+    // let srcWhite = new cv.Mat();
+    // cv.bitwise_and(srcWhiteHLS, srcWhiteHSV, srcWhite)
+    srcWhite = srcWhiteHSV;
+
+    let contours = new cv.MatVector(), hierarchy = new cv.Mat();
+    cv.findContours(srcWhite, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+    // draw contours with random Scalar
+    var maxIdx = -1;
+    var maxArea = -1;
+    for (let i = 0; i < contours.size(); ++i) {
+        let cnt = contours.get(i);
+        let area = cv.contourArea(cnt, false);
+
+        // only consider contour that covers the area more than minAreaRatio of the image.
+        if (area >= minAreaRatio * nrows * ncols && area > maxArea){
+            maxIdx = i;
+            maxArea = area;
+        }
+    }
+
+    let retRect = null;
+    if (maxIdx >= 0){
+        let cnt = contours.get(maxIdx);
+        retRect = cv.boundingRect(cnt);
+    }else{
+        retRect = new cv.Rect(0, 0, ncols, nrows);
+    }
+
+    srcWhiteHSV.delete();
+    hierarchy.delete();
+    contours.delete();
+
+    return retRect;
+
+};
 
 function kmeanSegmentation(srcRGBA, attempts = 10){
     if (! isImgRGBA(srcRGBA)){
@@ -351,7 +395,7 @@ function grabcutSegmentation(srcRGBA, foregroundMask, iterCount = 10){
 
     // TODO: try to use combine mode between GC_INIT_WITH_RECT and GC_INIT_WITH_MASK
     // Outside of this roi, obvious background when use cv.GC_INIT_WITH_RECT
-    let rect = new cv.Rect(0, 0, nrows, ncols);  
+    let rect = new cv.Rect(0, 0, ncols, nrows);
 
     cv.grabCut(srcRGB, gcLabel, rect, bgdModel, fgdModel, iterCount, cv.GC_INIT_WITH_MASK);
 
